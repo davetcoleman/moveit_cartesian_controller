@@ -1,0 +1,4 @@
+<launch>
+  <rosparam command="load" ns="test" file="$(find moveit_cartesian_controller)/test/tolerances.yaml" />
+  <test test-name="tolerances_test" pkg="moveit_cartesian_controller" type="tolerances_test"/>
+</launch>
