@@ -31,11 +31,9 @@ bool CartPathPlanner::init(ros::NodeHandle &nh)
   // Load the MoveIt components
   MoveItBase::init(nh_);
 
-  // Rename joint model group
-  arm_jmg_ = jmg_;
-
   // Parameters
   double time_param_iterations;
+  std::string joint_model_group;
 
   // Load rosparams
   ros::NodeHandle rpnh(nh_, name_);
@@ -49,6 +47,7 @@ bool CartPathPlanner::init(ros::NodeHandle &nh)
   error += !rosparam_shortcuts::get(name_, rpnh, "visualization_rate", visualization_rate_);
   error += !rosparam_shortcuts::get(name_, rpnh, "use_collision_checking", use_collision_checking_);
   error += !rosparam_shortcuts::get(name_, rpnh, "average_plan_time", average_plan_time_);
+  error += !rosparam_shortcuts::get(name_, rpnh, "joint_model_group", joint_model_group);
   error += !rosparam_shortcuts::get(name_, rpnh, "debug/command_rate", debug_command_rate_);
   error += !rosparam_shortcuts::get(name_, rpnh, "debug/generated_traj_rate", debug_generated_traj_rate_);
   error += !rosparam_shortcuts::get(name_, rpnh, "debug/show_time_parameterization", debug_show_time_parameterization_);
@@ -56,6 +55,8 @@ bool CartPathPlanner::init(ros::NodeHandle &nh)
   error += !rosparam_shortcuts::get(name_, rpnh, "debug/save_generated_trajectory", debug_save_generated_trajectory_);
   error += !rosparam_shortcuts::get(name_, rpnh, "debug/save_traj_to_file_path", save_traj_to_file_path_);
   rosparam_shortcuts::shutdownIfError(name_, error);
+
+  arm_jmg_ = robot_model_->getJointModelGroup(joint_model_group);
 
   // Warn user if no collision checking
   if (!use_collision_checking_)
@@ -191,17 +192,17 @@ void CartPathPlanner::controllerStateCB(const std::vector<double>& future_positi
     ROS_FATAL_STREAM_NAMED(name_, "Velocity and acceleration vectors do not match in size");
     exit(-1);
   }
-  if (future_positions.size() != jmg_->getActiveJointModels().size())
+  if (future_positions.size() != arm_jmg_->getActiveJointModels().size())
   {
     ROS_FATAL_STREAM_NAMED(name_, "Controller future state has " << future_positions.size() << " joints but "
-                           << " robot model requires " << jmg_->getActiveJointModels().size());
+                           << " robot model requires " << arm_jmg_->getActiveJointModels().size());
     exit(-1);
   }
 
   // Copy values
-  start_planning_state_->setJointGroupPositions(jmg_, future_positions);
-  start_planning_state_->setJointGroupVelocities(jmg_, future_velocities);
-  start_planning_state_->setJointGroupAccelerations(jmg_, future_accelerations);
+  start_planning_state_->setJointGroupPositions(arm_jmg_, future_positions);
+  start_planning_state_->setJointGroupVelocities(arm_jmg_, future_velocities);
+  start_planning_state_->setJointGroupAccelerations(arm_jmg_, future_accelerations);
   start_planning_time_ = future_time;
 
   // Process latest state
@@ -232,16 +233,16 @@ void CartPathPlanner::controllerStateCB(const std::vector<double>& future_positi
     ROS_FATAL_STREAM_NAMED(name_, "Position and velocity vectors do not match in size");
     exit(-1);
   }
-  if (future_positions.size() != jmg_->getActiveJointModels().size())
+  if (future_positions.size() != arm_jmg_->getActiveJointModels().size())
   {
     ROS_FATAL_STREAM_NAMED(name_, "Controller future state has " << future_positions.size() << " joints but "
-                           << " robot model requires " << jmg_->getActiveJointModels().size());
+                           << " robot model requires " << arm_jmg_->getActiveJointModels().size());
     exit(-1);
   }
 
   // Copy values
-  start_planning_state_->setJointGroupPositions(jmg_, future_positions);
-  start_planning_state_->setJointGroupVelocities(jmg_, future_velocities);
+  start_planning_state_->setJointGroupPositions(arm_jmg_, future_positions);
+  start_planning_state_->setJointGroupVelocities(arm_jmg_, future_velocities);
 
   // Process latest state
   {
@@ -355,7 +356,7 @@ bool CartPathPlanner::solveIK()
     // Only save first one
     if (trajectory_filename_count_ == 0)
     {
-      moveit_boilerplate::ExecutionInterface::saveTrajectory(trajectory_msg_, jmg_->getName() + "_moveit_trajectory_"
+      moveit_boilerplate::ExecutionInterface::saveTrajectory(trajectory_msg_, arm_jmg_->getName() + "_moveit_trajectory_"
                                                              + boost::lexical_cast<std::string>(trajectory_filename_count_++) + ".csv",
                                                              save_traj_to_file_path_);
       trajectory_filename_count_++;
