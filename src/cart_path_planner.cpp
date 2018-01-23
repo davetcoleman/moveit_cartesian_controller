@@ -136,7 +136,11 @@ void CartPathPlanner::cartCommandCB(const geometry_msgs::PoseStamped::ConstPtr &
 {
   // Convert to eigen
   Eigen::Affine3d input_pose;
+
+  std::string target_frame = robot_model_->getModelFrame();
+
   tf::poseMsgToEigen(command->pose, input_pose);
+  input_pose = start_planning_state_->getFrameTransform(command->header.frame_id) * input_pose;
 
   // Get write mutex lock
   {
